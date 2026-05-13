@@ -1,77 +1,20 @@
 """
-YAML preset loader — converts schema definitions into typed dataclasses
-consumed by the engine and logic layers.
+Laad een relsynth-preset vanuit een YAML-bestand.
 
-Preset YAML structure
----------------------
-name: <str>
-tables:
-  <table_name>:
-    type: dimension | fact
-    columns:
-      <col_name>:
-        dtype: integer | float | numeric | categorical | date | string
-        role: primary_key | foreign_key   # optional
-        references: <table>.<column>      # required when role=foreign_key
-        categories: [...]                 # required when dtype=categorical
-        probabilities: [...]              # optional, must sum to 1
-        min: <number>                     # optional, for numeric types
-        max: <number>                     # optional
-        nullable: bool                    # optional, default false
-    sequential:                           # optional, for longitudinal facts
-      entity_key: <col_name>
-      time_key: <col_name>
-    hooks:                                # optional business rules
-      - rule: "col_a > col_b"
-        condition: "col_a is not null"
-degree:
-  <fact_table>:
-    distribution: negative_binomial
-    mean: 4.2
-    dispersion: 1.8
+Gebruik `schema.py` voor de dataklassen zelf.
 """
 from __future__ import annotations
 
-from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, Optional
 
 import yaml
 
-
-@dataclass
-class ColumnSchema:
-    name: str
-    dtype: str
-    role: Optional[str] = None
-    references_table: Optional[str] = None
-    references_column: Optional[str] = None
-    categories: Optional[List[Any]] = None
-    probabilities: Optional[List[float]] = None
-    min_val: Optional[float] = None
-    max_val: Optional[float] = None
-    nullable: bool = False
-
-
-@dataclass
-class TableSchema:
-    name: str
-    table_type: str
-    columns: Dict[str, ColumnSchema]
-    sequential: Optional[Dict[str, Any]] = None
-    hooks: List[Dict[str, str]] = field(default_factory=list)
-
-
-@dataclass
-class Schema:
-    name: str
-    tables: Dict[str, TableSchema]
-    degree_config: Dict[str, Any] = field(default_factory=dict)
-    dim_keys: Dict[str, str] = field(default_factory=dict)
+from relsynth.schema import ColumnSchema, Schema, TableSchema
 
 
 class PresetLoader:
-    """Load and parse a relsynth schema preset from a YAML file."""
+    """Laad en parseer een relsynth-schema vanuit een YAML-bestand."""
 
     BUILTIN_DIR: Path = Path(__file__).parent / "schemas"
 
@@ -91,10 +34,6 @@ class PresetLoader:
                 f"Available presets: {available}"
             )
         return cls.from_yaml(path)
-
-    # ------------------------------------------------------------------
-    # Internal parsing
-    # ------------------------------------------------------------------
 
     @classmethod
     def _parse(cls, raw: Dict[str, Any]) -> Schema:

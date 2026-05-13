@@ -1,12 +1,12 @@
 """
-Logic hook engine — enforces declarative business rules on generated DataFrames.
+Hook-engine voor het afdwingen van declaratieve bedrijfsregels.
 
-Supported rule syntax (column expressions):
-  "col_a > col_b"   — ensure col_a is strictly greater than col_b
-  "col_a < col_b"   — ensure col_a is strictly less than col_b
+Ondersteunde regelvormen:
+  "col_a > col_b"   — col_a moet strikt groter zijn dan col_b
+  "col_a < col_b"   — col_a moet strikt kleiner zijn dan col_b
 
-Condition syntax:
-  "col_name is not null"  — only apply rule where col_name is non-null
+Conditiesyntax:
+  "col_name is not null"  — pas de regel alleen toe waar col_name niet null is
 """
 from __future__ import annotations
 
@@ -15,7 +15,7 @@ from typing import TYPE_CHECKING, Optional
 import pandas as pd
 
 if TYPE_CHECKING:
-    from relsynth.presets.loader import Schema
+    from relsynth.schema import Schema
 
 
 class HookEngine:
@@ -26,56 +26,39 @@ class HookEngine:
         if not table or not table.hooks:
             return df
         for hook in table.hooks:
-            rule = hook.get("rule", "")
-            condition = hook.get("condition")
-            df = _apply_rule(df, rule, condition)
+            df = _apply_rule(df, hook.get("rule", ""), hook.get("condition"))
         return df
 
-
-# ---------------------------------------------------------------------------
-# Rule application helpers
-# ---------------------------------------------------------------------------
 
 def _apply_rule(
     df: pd.DataFrame, rule: str, condition: Optional[str]
 ) -> pd.DataFrame:
     mask = _build_mask(df, condition)
     if ">" in rule:
-        left, right = [s.strip() for s in rule.split(">", 1)]
-        _enforce_order(df, left, right, mask, strict_gt=True)
+        bigger, smaller = [s.strip() for s in rule.split(">", 1)]
+        _enforce_order(df, bigger, smaller, mask)
     elif "<" in rule:
-        left, right = [s.strip() for s in rule.split("<", 1)]
-        _enforce_order(df, right, left, mask, strict_gt=True)
+        smaller, bigger = [s.strip() for s in rule.split("<", 1)]
+        _enforce_order(df, bigger, smaller, mask)
     return df
 
 
 def _enforce_order(
-    df: pd.DataFrame,
-    bigger: str,
-    smaller: str,
-    mask: pd.Series,
-    strict_gt: bool,
+    df: pd.DataFrame, bigger: str, smaller: str, mask: pd.Series
 ) -> None:
+    """Zorg dat df[bigger] > df[smaller] voor alle rijen waar mask True is.
+
+    Correctiestrategie: verhoog df[bigger] zodat het groter wordt dan df[smaller].
+    We wisselen *geen* waarden om — dat zou de semantiek omdraaien
+    (bijv. datum_inschrijving wordt diplomadatum).
+    """
     if bigger not in df.columns or smaller not in df.columns:
         return
-    if strict_gt:
-        violations = mask & (df[bigger] <= df[smaller])
-    else:
-        violations = mask & (df[bigger] < df[smaller])
-
+    violations = mask & (df[bigger] <= df[smaller])
     if not violations.any():
         return
-
-    # Swap values for violating rows so the ordering holds
-    b_vals = df.loc[violations, bigger].to_numpy().copy()
-    s_vals = df.loc[violations, smaller].to_numpy().copy()
-    df.loc[violations, bigger] = s_vals
-    df.loc[violations, smaller] = b_vals
-
-    # If after swap they are still equal (both same value), nudge bigger up
-    still_equal = mask & (df[bigger] == df[smaller])
-    if still_equal.any():
-        df.loc[still_equal, bigger] = df.loc[still_equal, bigger] + 1
+    # Zet bigger op smaller + 1 zodat de orde gegarandeerd is
+    df.loc[violations, bigger] = df.loc[violations, smaller] + 1
 
 
 def _build_mask(df: pd.DataFrame, condition: Optional[str]) -> pd.Series:

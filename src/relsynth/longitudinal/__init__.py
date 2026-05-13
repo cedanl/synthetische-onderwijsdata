@@ -1,5 +1,3 @@
-# logic/ is hernoemd naar longitudinal/.
-# Deze forward-imports zorgen dat bestaande code niet breekt.
 from relsynth.longitudinal.degree import DegreeModel
 from relsynth.longitudinal.dbn import TransitionModel
 from relsynth.longitudinal.sequential import SequentialGenerator

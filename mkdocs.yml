@@ -37,7 +37,6 @@ theme:
     - search.highlight
     - content.code.copy
     - content.tabs.link
-  custom_dir: docs/overrides
 
 extra_css:
   - stylesheets/npuls.css

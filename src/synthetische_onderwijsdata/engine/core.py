@@ -52,7 +52,13 @@ class RelationalSynthesizer:
             table = self.schema.tables[table_name]
             df = data[table_name]
 
-            numeric_cols = _numeric_feature_cols(table)
+            time_key = (table.sequential or {}).get("time_key")
+            numeric_cols = [
+                c for c in _numeric_feature_cols(table)
+                if c in df.columns
+                and c != time_key
+                and pd.api.types.is_numeric_dtype(df[c])
+            ]
             if numeric_cols:
                 gcm = GCMEngine(self._child_seed())
                 gcm.fit(df[numeric_cols])
@@ -160,7 +166,20 @@ class RelationalSynthesizer:
             degree_model = self._degree.get(name) or _degree_from_config(
                 name, self.schema, self._child_seed()
             )
-            return self._sequential[name].generate(parent_df, entity_key, degree_model)
+            # Bouw FK-pools voor switchbare kolommen (alles behalve de entity_key)
+            fk_pools: Dict[str, np.ndarray] = {}
+            for col_name, col in table.columns.items():
+                if col.role == "foreign_key" and col_name != entity_key:
+                    if col.references_table and col.references_column:
+                        try:
+                            fk_pools[col_name] = self._registry.pk_values(
+                                col.references_table, col.references_column
+                            )
+                        except KeyError:
+                            pass
+            return self._sequential[name].generate(
+                parent_df, entity_key, degree_model, fk_pools=fk_pools or None
+            )
 
         n = _estimate_fact_size(table, generated)
         return self._generate_table(name, table, n)

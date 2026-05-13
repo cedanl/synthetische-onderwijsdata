@@ -121,3 +121,125 @@ def test_dim_keys_aanwezig(schema):
     assert schema.dim_keys["dim_persoon"] == "persoonsgebonden_nummer"
     assert schema.dim_keys["dim_opleiding"] == "opleidingscode"
     assert schema.dim_keys["dim_instelling"] == "instellingscode"
+
+
+# ---------------------------------------------------------------------------
+# Tussenjaren en switchers
+# ---------------------------------------------------------------------------
+
+def _make_flat_df_met_tussenjaren_en_switchers(seed: int = 42) -> pd.DataFrame:
+    """
+    Gesimuleerd plat bestand met:
+    - Studenten met een gat in hun inschrijvingsjaren (tussenjaar)
+    - Studenten die van opleiding wisselen (switcher)
+    """
+    rng = np.random.default_rng(seed)
+    rows = []
+    opleidingen = ["34001", "34002", "34003"]
+    instellingen = ["21RI", "21PX"]
+
+    for i in range(80):
+        pgn = f"{i:012d}"
+        opl = rng.choice(opleidingen)
+        inst = rng.choice(instellingen)
+
+        # Normaal traject: 3 aaneengesloten jaren
+        for jaar in [2019, 2020, 2021]:
+            rows.append({"persoonsgebonden_nummer": pgn, "inschrijvingsjaar": str(jaar),
+                         "opleidingscode": opl, "instellingscode": inst,
+                         "geslacht": "1", "soort_hoger_onderwijs": "hbo",
+                         "opleidingsvorm": "1", "soort_inschrijving_hoger_onderwijs": "1",
+                         "diplomajaar": ""})
+
+    for i in range(80, 100):
+        pgn = f"{i:012d}"
+        inst = rng.choice(instellingen)
+        # Tussenjaar: 2019, dan gat, dan 2021
+        for jaar in [2019, 2021]:
+            rows.append({"persoonsgebonden_nummer": pgn, "inschrijvingsjaar": str(jaar),
+                         "opleidingscode": "34001", "instellingscode": inst,
+                         "geslacht": "2", "soort_hoger_onderwijs": "wo ",
+                         "opleidingsvorm": "2", "soort_inschrijving_hoger_onderwijs": "1",
+                         "diplomajaar": ""})
+
+    for i in range(100, 120):
+        pgn = f"{i:012d}"
+        inst = rng.choice(instellingen)
+        # Switcher: begint opleiding 34001, gaat naar 34002
+        rows.append({"persoonsgebonden_nummer": pgn, "inschrijvingsjaar": "2019",
+                     "opleidingscode": "34001", "instellingscode": inst,
+                     "geslacht": "1", "soort_hoger_onderwijs": "hbo",
+                     "opleidingsvorm": "1", "soort_inschrijving_hoger_onderwijs": "1",
+                     "diplomajaar": ""})
+        rows.append({"persoonsgebonden_nummer": pgn, "inschrijvingsjaar": "2020",
+                     "opleidingscode": "34002", "instellingscode": inst,
+                     "geslacht": "1", "soort_hoger_onderwijs": "hbo",
+                     "opleidingsvorm": "1", "soort_inschrijving_hoger_onderwijs": "1",
+                     "diplomajaar": ""})
+        rows.append({"persoonsgebonden_nummer": pgn, "inschrijvingsjaar": "2021",
+                     "opleidingscode": "34002", "instellingscode": inst,
+                     "geslacht": "1", "soort_hoger_onderwijs": "hbo",
+                     "opleidingsvorm": "1", "soort_inschrijving_hoger_onderwijs": "1",
+                     "diplomajaar": ""})
+
+    return pd.DataFrame(rows)
+
+
+def test_tussenjaren_optreden_na_fit(schema):
+    """Na fit op data met tussenjaren moet de synthetische output ook jaar-gaps bevatten."""
+    df = _make_flat_df_met_tussenjaren_en_switchers()
+    tables = split_flat(df, schema)
+
+    synth = RelationalSynthesizer(schema, random_state=0)
+    synth.fit(tables)
+    synthetic = synth.generate(
+        n_entities={"dim_persoon": 300, "dim_opleiding": 10, "dim_instelling": 5}
+    )
+
+    fac = synthetic["fac_inschrijving"]
+    fac["inschrijvingsjaar"] = fac["inschrijvingsjaar"].astype(int)
+
+    gaps = (
+        fac.sort_values("inschrijvingsjaar")
+        .groupby("persoonsgebonden_nummer")["inschrijvingsjaar"]
+        .apply(lambda s: (np.diff(s.to_numpy()) > 1).any())
+    )
+    assert gaps.any(), "Verwacht ten minste één student met een tussenjaar"
+
+
+def test_switchers_optreden_na_fit(schema):
+    """Na fit op data met switchers moet de synthetische output ook opleidingswissels bevatten."""
+    df = _make_flat_df_met_tussenjaren_en_switchers()
+    tables = split_flat(df, schema)
+
+    synth = RelationalSynthesizer(schema, random_state=0)
+    synth.fit(tables)
+    synthetic = synth.generate(
+        n_entities={"dim_persoon": 300, "dim_opleiding": 10, "dim_instelling": 5}
+    )
+
+    fac = synthetic["fac_inschrijving"]
+    fac["inschrijvingsjaar"] = fac["inschrijvingsjaar"].astype(int)
+
+    switchers = (
+        fac.sort_values("inschrijvingsjaar")
+        .groupby("persoonsgebonden_nummer")["opleidingscode"]
+        .apply(lambda s: s.nunique() > 1)
+    )
+    assert switchers.any(), "Verwacht ten minste één switcher in de synthetische data"
+
+
+def test_fk_opleidingscode_valide_na_fit(schema):
+    """FK opleidingscode in fac_inschrijving moet altijd verwijzen naar een bestaande dim_opleiding."""
+    df = _make_flat_df_met_tussenjaren_en_switchers()
+    tables = split_flat(df, schema)
+
+    synth = RelationalSynthesizer(schema, random_state=0)
+    synth.fit(tables)
+    synthetic = synth.generate(
+        n_entities={"dim_persoon": 200, "dim_opleiding": 10, "dim_instelling": 5}
+    )
+
+    opl_pks = set(synthetic["dim_opleiding"]["opleidingscode"].tolist())
+    fac_opls = set(synthetic["fac_inschrijving"]["opleidingscode"].dropna().tolist())
+    assert fac_opls.issubset(opl_pks), "Orphan opleidingscodes gevonden in fac_inschrijving"

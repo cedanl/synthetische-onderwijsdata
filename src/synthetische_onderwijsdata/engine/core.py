@@ -7,7 +7,7 @@ FK verwijst naar een al bestaande PK.  Kolomgeneratie is gedelegeerd aan
 """
 from __future__ import annotations
 
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Tuple
 
 import numpy as np
 import pandas as pd
@@ -39,6 +39,8 @@ class RelationalSynthesizer:
         self._gcm: Dict[str, GCMEngine] = {}
         self._degree: Dict[str, DegreeModel] = {}
         self._sequential: Dict[str, SequentialGenerator] = {}
+        # {table: {col: (categories, probs)}} — geleerd van echte data in fit()
+        self._cat_models: Dict[str, Dict[str, Tuple[List, np.ndarray]]] = {}
 
     # ------------------------------------------------------------------
     # Fit
@@ -55,6 +57,15 @@ class RelationalSynthesizer:
                 gcm = GCMEngine(self._child_seed())
                 gcm.fit(df[numeric_cols])
                 self._gcm[table_name] = gcm
+
+            cat_learned: Dict[str, Tuple[List, np.ndarray]] = {}
+            for col_name, col in table.columns.items():
+                if col.dtype == "categorical" and col_name in df.columns:
+                    vc = df[col_name].value_counts(normalize=True, dropna=True)
+                    if len(vc):
+                        cat_learned[col_name] = (vc.index.tolist(), vc.to_numpy())
+            if cat_learned:
+                self._cat_models[table_name] = cat_learned
 
             if table.sequential:
                 entity_key: str = table.sequential["entity_key"]
@@ -115,6 +126,8 @@ class RelationalSynthesizer:
         gcm_cols = set(self._gcm[name]._columns) if name in self._gcm else set()
         result: Dict[str, Any] = {}
 
+        cat_learned = self._cat_models.get(name, {})
+
         for col_name, col in table.columns.items():
             if col.role == "primary_key":
                 result[col_name] = make_pk(col, n)
@@ -122,6 +135,9 @@ class RelationalSynthesizer:
                 result[col_name] = self._registry.sample_fk(
                     col.references_table, col.references_column, n  # type: ignore[arg-type]
                 )
+            elif col_name in cat_learned:
+                cats, probs = cat_learned[col_name]
+                result[col_name] = self._rng.choice(cats, size=n, p=probs)
             elif col_name not in gcm_cols:
                 result[col_name] = sample_column(col, n, self._rng)
 

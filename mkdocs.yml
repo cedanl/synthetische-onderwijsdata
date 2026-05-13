@@ -83,5 +83,6 @@ markdown_extensions:
 nav:
   - Home: index.md
   - Aan de slag: aan-de-slag.md
+  - Hoe het werkt: hoe-het-werkt.md
   - API-referentie:
     - api/index.md

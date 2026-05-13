@@ -3,17 +3,17 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [project]
-name = "relsynth"
+name = "synthetische-onderwijsdata"
 version = "0.1.0"
 description = "Modular synthetic relational data generation with referential integrity and longitudinal support"
 readme = "README.md"
 requires-python = ">=3.10"
-license = { text = "MIT" }
+license = { text = "EUPL-1.2" }
 keywords = ["synthetic data", "relational", "privacy", "tabular"]
 classifiers = [
     "Development Status :: 3 - Alpha",
     "Intended Audience :: Science/Research",
-    "License :: OSI Approved :: MIT License",
+    "License :: OSI Approved :: European Union Public Licence 1.2 (EUPL 1.2)",
     "Programming Language :: Python :: 3",
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
@@ -34,8 +34,16 @@ dev = [
     "ruff>=0.4",
 ]
 
+[dependency-groups]
+docs = [
+    "mkdocs>=1.6.0",
+    "mkdocs-material>=9.5.0",
+    "mkdocstrings[python]>=0.26.0",
+    "pymdown-extensions>=10.0",
+]
+
 [tool.hatch.build.targets.wheel]
-packages = ["src/relsynth"]
+packages = ["src/synthetische_onderwijsdata"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
@@ -50,4 +58,4 @@ line-length = 100
 select = ["E", "F", "W", "I"]
 
 [tool.coverage.run]
-source = ["src/relsynth"]
+source = ["src/synthetische_onderwijsdata"]

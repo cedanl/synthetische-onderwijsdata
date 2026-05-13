@@ -1,12 +1,12 @@
 """
 Splits een plat 1cijferHO CSV/Parquet-bestand (output van cedanl/1cijferho-tool)
-in de dim/feit-tabellen zoals gedefinieerd in het relsynth-preset.
+in de dim/feit-tabellen zoals gedefinieerd in het synthetische_onderwijsdata-preset.
 
 Gebruik
 -------
     import pandas as pd
-    from relsynth.presets.loader import PresetLoader
-    from relsynth.io.splitter import split_flat
+    from synthetische_onderwijsdata.engine.loader import PresetLoader
+    from synthetische_onderwijsdata.sources._1cijferho.splitter import split_flat
 
     schema = PresetLoader.from_builtin("1cijferho")
     df = pd.read_parquet("data/ev_inschrijving.parquet")
@@ -33,7 +33,7 @@ from typing import Dict
 
 import pandas as pd
 
-from relsynth.presets.loader import Schema
+from synthetische_onderwijsdata.engine.loader import Schema
 
 
 def split_flat(df: pd.DataFrame, schema: Schema) -> Dict[str, pd.DataFrame]:
@@ -45,7 +45,7 @@ def split_flat(df: pd.DataFrame, schema: Schema) -> Dict[str, pd.DataFrame]:
     df:
         Plat DataFrame, direct geladen uit de cedanl/1cijferho-tooloutput.
     schema:
-        Ingeladen relsynth-schema (PresetLoader.from_builtin("1cijferho")).
+        Ingeladen synthetische_onderwijsdata-schema (PresetLoader.from_builtin("1cijferho")).
 
     Returns
     -------

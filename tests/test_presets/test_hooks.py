@@ -1,6 +1,6 @@
 import pandas as pd
 import numpy as np
-from relsynth.presets.hooks import _apply_rule
+from synthetische_onderwijsdata.engine.hooks import _apply_rule
 
 
 def test_greater_than_rule_fixes_violations():

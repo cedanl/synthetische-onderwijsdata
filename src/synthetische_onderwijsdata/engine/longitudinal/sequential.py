@@ -11,11 +11,11 @@ from typing import TYPE_CHECKING, Any, Dict, List, Optional
 import numpy as np
 import pandas as pd
 
-from relsynth.longitudinal.dbn import TransitionModel
+from synthetische_onderwijsdata.engine.longitudinal.dbn import TransitionModel
 
 if TYPE_CHECKING:
-    from relsynth.longitudinal.degree import DegreeModel
-    from relsynth.schema import TableSchema
+    from synthetische_onderwijsdata.engine.longitudinal.degree import DegreeModel
+    from synthetische_onderwijsdata.schema import TableSchema
 
 
 class SequentialGenerator:

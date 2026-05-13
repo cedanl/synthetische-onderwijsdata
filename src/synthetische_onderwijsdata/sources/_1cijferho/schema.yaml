@@ -16,7 +16,7 @@ description: >
     fac_vak          – één rij per vak per VO-gediplomeerde
 
   Gebruik met een plat bestand:
-    from relsynth.io.splitter import split_flat
+    from synthetische_onderwijsdata.io.splitter import split_flat
     tables = split_flat(df, schema)          # df = geladen CSV/parquet
     synth.fit(tables).generate(n_entities={"dim_persoon": 1000, ...})
 

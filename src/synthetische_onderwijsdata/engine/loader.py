@@ -1,5 +1,5 @@
 """
-Laad een relsynth-preset vanuit een YAML-bestand.
+Laad een synthetische_onderwijsdata-preset vanuit een YAML-bestand.
 
 Gebruik `schema.py` voor de dataklassen zelf.
 """
@@ -10,13 +10,13 @@ from typing import Any, Dict, Optional
 
 import yaml
 
-from relsynth.schema import ColumnSchema, Schema, TableSchema
+from synthetische_onderwijsdata.schema import ColumnSchema, Schema, TableSchema
 
 
 class PresetLoader:
-    """Laad en parseer een relsynth-schema vanuit een YAML-bestand."""
+    """Laad en parseer een synthetische_onderwijsdata-schema vanuit een YAML-bestand."""
 
-    BUILTIN_DIR: Path = Path(__file__).parent / "schemas"
+    SOURCES_DIR: Path = Path(__file__).parent.parent / "sources"
 
     @classmethod
     def from_yaml(cls, path: str | Path) -> Schema:
@@ -26,9 +26,10 @@ class PresetLoader:
 
     @classmethod
     def from_builtin(cls, name: str) -> Schema:
-        path = cls.BUILTIN_DIR / f"{name}.yaml"
+        path = cls.SOURCES_DIR / f"_{name}" / "schema.yaml"
         if not path.exists():
-            available = sorted(p.stem for p in cls.BUILTIN_DIR.glob("*.yaml"))
+            available = sorted(p.name.lstrip("_") for p in cls.SOURCES_DIR.iterdir()
+                               if p.is_dir() and not p.name.startswith("__"))
             raise FileNotFoundError(
                 f"Built-in preset '{name}' not found.  "
                 f"Available presets: {available}"

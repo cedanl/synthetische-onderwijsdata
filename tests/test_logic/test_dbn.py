@@ -1,6 +1,6 @@
 import pandas as pd
 import numpy as np
-from relsynth.logic.dbn import TransitionModel
+from synthetische_onderwijsdata.engine.longitudinal.dbn import TransitionModel
 
 
 def _make_sequences(n: int = 20, length: int = 5, seed: int = 0):

@@ -8,9 +8,9 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from relsynth import RelationalSynthesizer
-from relsynth.io.splitter import split_flat
-from relsynth.presets.loader import PresetLoader
+from synthetische_onderwijsdata import RelationalSynthesizer
+from synthetische_onderwijsdata.sources._1cijferho.splitter import split_flat
+from synthetische_onderwijsdata.engine.loader import PresetLoader
 
 
 # ---------------------------------------------------------------------------

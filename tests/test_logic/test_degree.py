@@ -1,7 +1,7 @@
 import numpy as np
 import pandas as pd
 import pytest
-from relsynth.logic.degree import DegreeModel
+from synthetische_onderwijsdata.engine.longitudinal.degree import DegreeModel
 
 
 def _student_data() -> pd.DataFrame:

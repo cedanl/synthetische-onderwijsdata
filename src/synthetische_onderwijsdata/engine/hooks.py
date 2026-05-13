@@ -15,7 +15,7 @@ from typing import TYPE_CHECKING, Optional
 import pandas as pd
 
 if TYPE_CHECKING:
-    from relsynth.schema import Schema
+    from synthetische_onderwijsdata.schema import Schema
 
 
 class HookEngine:

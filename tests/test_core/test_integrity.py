@@ -1,6 +1,6 @@
 import numpy as np
 import pytest
-from relsynth.core.integrity import IntegrityRegistry
+from synthetische_onderwijsdata.engine.integrity import IntegrityRegistry
 
 
 def test_fk_values_within_pk_pool():

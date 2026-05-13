@@ -10,7 +10,7 @@ from typing import Optional
 
 import numpy as np
 
-from relsynth.schema import ColumnSchema
+from synthetische_onderwijsdata.schema import ColumnSchema
 
 
 def sample_column(

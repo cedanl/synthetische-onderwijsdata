@@ -1,5 +1,5 @@
 import pytest
-from relsynth.presets.loader import PresetLoader
+from synthetische_onderwijsdata.engine.loader import PresetLoader
 
 
 def test_load_builtin_1cijferho():

@@ -1,5 +1,5 @@
 """
-Datamodellen voor een relsynth-schema.
+Datamodellen voor een synthetische_onderwijsdata-schema.
 
 Deze module bevat alleen pure dataklassen — geen I/O, geen YAML, geen logica.
 Importeer hier vanuit als je schema-objecten nodig hebt.

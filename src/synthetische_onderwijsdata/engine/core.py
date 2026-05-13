@@ -12,14 +12,14 @@ from typing import Any, Dict, List, Optional
 import numpy as np
 import pandas as pd
 
-from relsynth.core.gcm import GCMEngine
-from relsynth.core.integrity import IntegrityRegistry
-from relsynth.core.samplers import make_pk, sample_column
-from relsynth.core.topology import SchemaGraph
-from relsynth.longitudinal.degree import DegreeModel
-from relsynth.longitudinal.sequential import SequentialGenerator
-from relsynth.presets.hooks import HookEngine
-from relsynth.schema import Schema, TableSchema
+from synthetische_onderwijsdata.engine.gcm import GCMEngine
+from synthetische_onderwijsdata.engine.integrity import IntegrityRegistry
+from synthetische_onderwijsdata.engine.samplers import make_pk, sample_column
+from synthetische_onderwijsdata.engine.topology import SchemaGraph
+from synthetische_onderwijsdata.engine.longitudinal.degree import DegreeModel
+from synthetische_onderwijsdata.engine.longitudinal.sequential import SequentialGenerator
+from synthetische_onderwijsdata.engine.hooks import HookEngine
+from synthetische_onderwijsdata.schema import Schema, TableSchema
 
 
 class RelationalSynthesizer:

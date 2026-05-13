@@ -4,8 +4,8 @@ Example: generate synthetic 1cijferHO data from the built-in preset.
 Run:
     uv run python examples/1cijferho_example.py
 """
-from relsynth import RelationalSynthesizer
-from relsynth.presets.loader import PresetLoader
+from synthetische_onderwijsdata import RelationalSynthesizer
+from synthetische_onderwijsdata.presets.loader import PresetLoader
 
 schema = PresetLoader.from_builtin("1cijferho")
 

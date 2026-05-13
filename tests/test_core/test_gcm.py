@@ -1,7 +1,7 @@
 import numpy as np
 import pandas as pd
 import pytest
-from relsynth.core.gcm import GCMEngine
+from synthetische_onderwijsdata.engine.gcm import GCMEngine
 
 
 def _correlated_df(rho: float = 0.8, n: int = 500, seed: int = 42) -> pd.DataFrame:

@@ -1,4 +1,4 @@
-# relsynth
+# synthetische_onderwijsdata
 
 Modulair Python-package voor het genereren van synthetische **relationele** data met behoud van:
 
@@ -13,7 +13,7 @@ Ontworpen voor complexe schema's zoals **1cijferHO** (CBS/DUO).
 ## Installatie
 
 ```bash
-pip install relsynth          # via PyPI (toekomstig)
+pip install synthetische_onderwijsdata          # via PyPI (toekomstig)
 # of lokaal:
 pip install -e ".[dev]"
 ```
@@ -25,8 +25,8 @@ Vereisten: Python ≥ 3.10, numpy, scipy, pandas, pyyaml.
 ## Snel starten
 
 ```python
-from relsynth import RelationalSynthesizer
-from relsynth.presets.loader import PresetLoader
+from synthetische_onderwijsdata import RelationalSynthesizer
+from synthetische_onderwijsdata.presets.loader import PresetLoader
 
 # Laad het ingebouwde 1cijferHO-schema
 schema = PresetLoader.from_builtin("1cijferho")
@@ -60,7 +60,7 @@ synthetic = synth.generate(n_entities={"dim_student": 5000, "dim_opleiding": 50}
 ## Architectuur
 
 ```
-src/relsynth/
+src/synthetische_onderwijsdata/
 ├── core/
 │   ├── engine.py       # IRG-engine — topologische generatielus
 │   ├── topology.py     # DAG + Kahn's topologisch sorteren
@@ -127,7 +127,7 @@ tables:
 ```
 
 ```python
-from relsynth.presets.loader import PresetLoader
+from synthetische_onderwijsdata.presets.loader import PresetLoader
 
 schema = PresetLoader.from_yaml("myproject/schemas/mijn_schema.yaml")
 ```
@@ -156,4 +156,4 @@ pytest
 
 ## Licentie
 
-MIT
+EUPL-1.2

@@ -1,5 +1,5 @@
 import pytest
-from relsynth.core.topology import SchemaGraph
+from synthetische_onderwijsdata.engine.topology import SchemaGraph
 
 
 def test_single_table():

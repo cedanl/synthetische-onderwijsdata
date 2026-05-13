@@ -1,0 +1,107 @@
+name: 1cijferho
+description: >
+  Synthetisch schema gebaseerd op 1cijferHO (CBS/DUO).
+  Bevat student-dimensie, opleidingen-dimensie en een longitudinale
+  inschrijving-feittabel met temporele afhankelijkheden per student.
+
+tables:
+
+  dim_student:
+    type: dimension
+    columns:
+      studentnummer:
+        dtype: integer
+        role: primary_key
+        min: 1000000
+      geslacht:
+        dtype: categorical
+        categories: [M, V, X]
+        probabilities: [0.48, 0.50, 0.02]
+      geboortejaar:
+        dtype: integer
+        min: 1965
+        max: 2005
+      herkomst:
+        dtype: categorical
+        categories: [NL, EU, NIET-EU]
+        probabilities: [0.82, 0.09, 0.09]
+      vooropleiding:
+        dtype: categorical
+        categories: [VWO, HAVO, MBO-4, HBO-P, WO-B, OVERIG]
+        probabilities: [0.42, 0.20, 0.18, 0.10, 0.06, 0.04]
+
+  dim_opleiding:
+    type: dimension
+    columns:
+      isat_code:
+        dtype: integer
+        role: primary_key
+        min: 34000
+      opleiding_naam:
+        dtype: categorical
+        categories:
+          - Informatica
+          - Bedrijfskunde
+          - Psychologie
+          - Rechten
+          - Geneeskunde
+          - Technische Informatica
+          - Communicatie
+          - Pedagogiek
+      onderwijstype:
+        dtype: categorical
+        categories: [HBO-B, WO-B, HBO-M, WO-M]
+        probabilities: [0.40, 0.35, 0.15, 0.10]
+      nominale_studieduur:
+        dtype: integer
+        min: 3
+        max: 6
+
+  fac_inschrijving:
+    type: fact
+    columns:
+      inschrijving_id:
+        dtype: integer
+        role: primary_key
+        min: 1
+      studentnummer:
+        dtype: integer
+        role: foreign_key
+        references: dim_student.studentnummer
+      isat_code:
+        dtype: integer
+        role: foreign_key
+        references: dim_opleiding.isat_code
+      collegejaar:
+        dtype: integer
+        min: 2000
+        max: 2024
+      inschrijfdatum:
+        dtype: integer
+        min: 730120
+        max: 737800
+      diplomadatum:
+        dtype: integer
+        min: 731500
+        max: 739000
+        nullable: true
+      ects_behaald:
+        dtype: float
+        min: 0.0
+        max: 60.0
+      resultaat:
+        dtype: categorical
+        categories: [DIPLOMA, UITVAL, SWITCH, DOORSTUDEREND]
+        probabilities: [0.35, 0.25, 0.20, 0.20]
+    sequential:
+      entity_key: studentnummer
+      time_key: collegejaar
+    hooks:
+      - rule: "diplomadatum > inschrijfdatum"
+        condition: "diplomadatum is not null"
+
+degree:
+  fac_inschrijving:
+    distribution: negative_binomial
+    mean: 4.2
+    dispersion: 1.8

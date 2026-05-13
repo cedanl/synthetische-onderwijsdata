@@ -41,6 +41,7 @@ class RelationalSynthesizer:
         self._sequential: Dict[str, SequentialGenerator] = {}
         # {table: {col: (categories, probs)}} — geleerd van echte data in fit()
         self._cat_models: Dict[str, Dict[str, Tuple[List, np.ndarray]]] = {}
+        self._topo_order: Optional[List[str]] = None
 
     # ------------------------------------------------------------------
     # Fit
@@ -189,6 +190,8 @@ class RelationalSynthesizer:
     # ------------------------------------------------------------------
 
     def _topological_order(self) -> List[str]:
+        if self._topo_order is not None:
+            return self._topo_order
         g = SchemaGraph()
         for t in self.schema.tables:
             g.add_table(t)
@@ -196,7 +199,8 @@ class RelationalSynthesizer:
             for col in table.columns.values():
                 if col.role == "foreign_key" and col.references_table:
                     g.add_dependency(col.references_table, t_name)
-        return g.topological_order()
+        self._topo_order = g.topological_order()
+        return self._topo_order
 
     def _child_seed(self) -> int:
         return int(self._rng.integers(0, 2**31))

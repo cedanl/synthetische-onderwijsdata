@@ -90,36 +90,38 @@ Dit zijn de bekende beperkingen. Ze zijn relevant als je de kwaliteit van de out
 
 ## Validatie van output
 
-Een eenvoudige validatieroutine na `fit()` + `generate()`:
+Het package bevat ingebouwde validatie-utilities in `synthetische_onderwijsdata.validate`.
+
+### Overzichtsrapport (alle tabellen tegelijk)
 
 ```python
-import pandas as pd
+from synthetische_onderwijsdata import validate
 
-def valideer_marginalen(real: pd.DataFrame, synth: pd.DataFrame, kolom: str) -> None:
-    """Vergelijk de verdeling van één kolom in echte en synthetische data."""
-    print(f"\n=== {kolom} ===")
-    real_pct  = real[kolom].value_counts(normalize=True).rename("echt")
-    synth_pct = synth[kolom].value_counts(normalize=True).rename("synthetisch")
-    print(pd.concat([real_pct, synth_pct], axis=1).round(3).to_string())
-
-# Voorbeeld: geslacht vergelijken
-valideer_marginalen(
-    tables["dim_persoon"],
-    synthetic["dim_persoon"],
-    "geslacht",
-)
+df = validate.report(tables, synthetic, schema)
+print(df.to_string())
 ```
 
-Voor numerieke kolommen:
+Geeft één DataFrame terug, gesorteerd op grootste afwijking eerst:
+
+| table | column | dtype | distance | metric |
+|---|---|---|---|---|
+| dim_persoon | geslacht | categorical | 0.032 | tv |
+| fac_inschrijving | soort_ho | categorical | 0.018 | tv |
+| … | … | … | … | … |
+
+- **`tv`** (Total Variation): 0 = identiek, 1 = volledig anders. Vuistregel: < 0.05 is goed.
+- **`wasserstein`**: schaalafhankelijk (zelfde eenheid als de kolom). Vuistregel: < 5% van het bereik.
+
+### Per tabel
 
 ```python
-def valideer_numeriek(real: pd.DataFrame, synth: pd.DataFrame, kolom: str) -> None:
-    print(f"\n=== {kolom} ===")
-    stats = pd.DataFrame({
-        "echt":        real[kolom].describe(),
-        "synthetisch": synth[kolom].describe(),
-    })
-    print(stats.round(2).to_string())
+# Categorische kolommen
+cat_df = validate.compare_marginals(tables["dim_persoon"], synthetic["dim_persoon"])
+print(cat_df)
+
+# Numerieke kolommen
+num_df = validate.compare_numeric(tables["fac_inschrijving"], synthetic["fac_inschrijving"])
+print(num_df)
 ```
 
 ---

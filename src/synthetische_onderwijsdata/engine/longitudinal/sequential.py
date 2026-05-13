@@ -67,51 +67,44 @@ class SequentialGenerator:
         ]
         self._feature_cols = cat_cols + num_cols
 
-        sequences: List[pd.DataFrame] = []
-        initial_rows: List[Dict[str, Any]] = []
-        all_gaps: List[int] = []
+        if time_key and time_key in data.columns:
+            data = data.sort_values([entity_key, time_key])
 
-        # FK-kolommen die kunnen switchen (alles behalve de entity_key zelf)
+        # Initiële toestand: eerste rij per entiteit
+        self._initial_states = (
+            data.drop_duplicates(subset=[entity_key], keep="first")
+            .reset_index(drop=True)
+        )
+
+        # Sequenties voor TransitionModel (één DataFrame per entiteit)
+        sequences: List[pd.DataFrame] = [
+            grp[self._feature_cols].reset_index(drop=True)
+            for _, grp in data.groupby(entity_key, sort=False)
+        ]
+        self._transition = TransitionModel(int(self._rng.integers(0, 2**31)))
+        self._transition.fit(sequences, cat_cols, num_cols)
+
+        # Gapverdeling — gevectoriseerd via groupby.diff
+        if time_key and time_key in data.columns:
+            time_num = pd.to_numeric(data[time_key], errors="coerce")
+            gaps = time_num.groupby(data[entity_key], sort=False).diff().dropna()
+            gaps = gaps[gaps > 0].astype(int)
+            if len(gaps):
+                vals, counts = np.unique(gaps.to_numpy(), return_counts=True)
+                self._gap_values = vals.astype(int)
+                self._gap_probs = counts / counts.sum()
+
+        # Switchkans per FK-kolom — gevectoriseerd via groupby.shift
         switchable_fk_cols = [
             c for c, col in self._schema.columns.items()
             if col.role == "foreign_key" and c != entity_key and c in data.columns
         ]
-        fk_switch_counts: Dict[str, int] = {c: 0 for c in switchable_fk_cols}
-        fk_transition_counts: Dict[str, int] = {c: 0 for c in switchable_fk_cols}
-
-        for _, group in data.groupby(entity_key):
-            if time_key and time_key in group.columns:
-                group = group.sort_values(time_key)
-
-            sequences.append(group[self._feature_cols].reset_index(drop=True))
-            initial_rows.append(group.iloc[0].to_dict())
-
-            # Gapverdeling leren
-            if time_key and time_key in group.columns and len(group) > 1:
-                years = group[time_key].to_numpy(dtype=int)
-                gaps = np.diff(years)
-                all_gaps.extend(gaps[gaps > 0].tolist())
-
-            # Switchkans per FK-kolom leren
-            for col_name in switchable_fk_cols:
-                vals = group[col_name].to_numpy()
-                if len(vals) > 1:
-                    fk_switch_counts[col_name] += int(np.sum(vals[1:] != vals[:-1]))
-                    fk_transition_counts[col_name] += len(vals) - 1
-
-        self._initial_states = pd.DataFrame(initial_rows).reset_index(drop=True)
-        self._transition = TransitionModel(int(self._rng.integers(0, 2**31)))
-        self._transition.fit(sequences, cat_cols, num_cols)
-
-        if all_gaps:
-            vals, counts = np.unique(all_gaps, return_counts=True)
-            self._gap_values = vals.astype(int)
-            self._gap_probs = counts / counts.sum()
-
         for col_name in switchable_fk_cols:
-            n_trans = fk_transition_counts[col_name]
+            prev = data.groupby(entity_key, sort=False)[col_name].shift(1)
+            n_trans = int(prev.notna().sum())
             if n_trans > 0:
-                self._fk_switch_probs[col_name] = fk_switch_counts[col_name] / n_trans
+                changed = (data[col_name] != prev) & prev.notna()
+                self._fk_switch_probs[col_name] = float(changed.sum()) / n_trans
 
         return self
 
@@ -149,9 +142,9 @@ class SequentialGenerator:
 
         all_rows: List[Dict[str, Any]] = []
         pk_counter = 1
+        entity_ids = parent_df[entity_key].to_numpy()
 
-        for (_, parent_row), n_steps in zip(parent_df.iterrows(), degrees):
-            entity_id = parent_row[entity_key]
+        for entity_id, n_steps in zip(entity_ids, degrees):
             state = self._sample_initial_state()
             # entity_key in het row-dict zetten, niet in de state Series
             # (voorkomt dtype-conflict tussen trainingsdata en gegenereerde PKs)

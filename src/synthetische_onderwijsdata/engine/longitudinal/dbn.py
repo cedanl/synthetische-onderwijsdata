@@ -32,34 +32,38 @@ class TransitionModel:
         return self
 
     def _fit_categorical(self, sequences: List[pd.DataFrame], col: str) -> None:
-        all_vals = sorted(
-            {v for seq in sequences for v in seq[col].dropna().tolist()}
-        )
-        if not all_vals:
+        frames = [seq[[col]].assign(_g=i) for i, seq in enumerate(sequences)]
+        if not frames:
             return
-        idx = {v: i for i, v in enumerate(all_vals)}
+        combined = pd.concat(frames, ignore_index=True)
+        combined["_prev"] = combined.groupby("_g", sort=False)[col].shift(1)
+        mask = combined[col].notna() & combined["_prev"].notna()
+        pairs = combined.loc[mask]
+        if pairs.empty:
+            return
+        all_vals = sorted(set(pairs[col].unique()) | set(pairs["_prev"].unique()))
         n = len(all_vals)
-        counts = np.ones((n, n))
-        for seq in sequences:
-            vals = seq[col].to_numpy()
-            for t in range(1, len(vals)):
-                if pd.notna(vals[t - 1]) and pd.notna(vals[t]):
-                    counts[idx[vals[t - 1]], idx[vals[t]]] += 1
+        idx = {v: i for i, v in enumerate(all_vals)}
+        counts = np.ones((n, n))  # Laplace smoothing
+        np.add.at(counts, (pairs["_prev"].map(idx).to_numpy(dtype=int),
+                           pairs[col].map(idx).to_numpy(dtype=int)), 1)
         probs = counts / counts.sum(axis=1, keepdims=True)
         self._cat[col] = (all_vals, probs)
 
     def _fit_ar1(self, sequences: List[pd.DataFrame], col: str) -> None:
-        x_prev: List[float] = []
-        x_curr: List[float] = []
-        for seq in sequences:
-            vals = seq[col].dropna().to_numpy(dtype=float)
-            if len(vals) >= 2:
-                x_prev.extend(vals[:-1].tolist())
-                x_curr.extend(vals[1:].tolist())
-        if not x_prev:
+        frames = [seq[[col]].assign(_g=i) for i, seq in enumerate(sequences)]
+        if not frames:
             self._ar1[col] = (0.0, 1.0, 1.0)
             return
-        xp, xc = np.array(x_prev), np.array(x_curr)
+        combined = pd.concat(frames, ignore_index=True)
+        combined["_prev"] = combined.groupby("_g", sort=False)[col].shift(1)
+        mask = combined[col].notna() & combined["_prev"].notna()
+        pairs = combined.loc[mask]
+        if len(pairs) < 2:
+            self._ar1[col] = (0.0, 1.0, 1.0)
+            return
+        xp = pairs["_prev"].to_numpy(dtype=float)
+        xc = pairs[col].to_numpy(dtype=float)
         beta = np.cov(xp, xc)[0, 1] / (np.var(xp) + 1e-10)
         alpha = float(xc.mean()) - beta * float(xp.mean())
         sigma = float(np.std(xc - (alpha + beta * xp))) + 1e-6

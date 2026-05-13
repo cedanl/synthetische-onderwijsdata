@@ -67,6 +67,7 @@ class Schema:
     name: str
     tables: Dict[str, TableSchema]
     degree_config: Dict[str, Any] = field(default_factory=dict)
+    fwf: Dict[str, Dict[str, Any]] = field(default_factory=dict)
 
 
 class PresetLoader:
@@ -128,4 +129,5 @@ class PresetLoader:
             name=raw.get("name", "unnamed"),
             tables=tables,
             degree_config=raw.get("degree", {}),
+            fwf=raw.get("fwf", {}),
         )

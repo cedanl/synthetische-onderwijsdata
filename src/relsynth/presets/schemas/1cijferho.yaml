@@ -1,107 +1,551 @@
 name: 1cijferho
 description: >
-  Synthetisch schema gebaseerd op 1cijferHO (CBS/DUO).
-  Bevat student-dimensie, opleidingen-dimensie en een longitudinale
-  inschrijving-feittabel met temporele afhankelijkheden per student.
+  Synthetisch schema gebaseerd op de officiële bestandsbeschrijving
+  1cyferho_2023_v1.1 (CBS/DUO, CEDA-verwerking).
 
+  Bronformaat: vast-breedte ASCII (EV*XX*.asc), 323 posities per rij.
+  De kolommen, posities en categoriecodes zijn rechtstreeks ontleend aan
+  de CBS-bestandsbeschrijving; kolomnamen zijn omgezet naar snake_case
+  conform de cedanl/1cijferho-tooling.
+
+  Dim/feit-opdeling:
+    dim_persoon      – persoonsgebonden_nummer (PGN) als PK + stabiele persoonskenmerken
+    dim_opleiding    – opleidingscode (ISAT) als PK + programma-kenmerken
+    dim_instelling   – instellingscode (BRIN) als PK
+    fac_inschrijving – één rij per inschrijving; PGN/opleiding/instelling als FK
+    fac_vak          – één rij per vak per geslaagde VO-student (vakkenbestand)
+
+# ---------------------------------------------------------------------------
+# Vaste-breedte veldposities (1-gebaseerd, inclusief begin- én eindpositie)
+# Bron: Lay-out bestand, Bestandsbeschrijving_1cyferho_2023_v1.1_DEMO.txt
+# ---------------------------------------------------------------------------
+fwf:
+  ev_inschrijving:
+    persoonsgebonden_nummer:              [1,   12]
+    inschrijvingsjaar:                    [13,  16]
+    instellingscode:                      [17,  20]
+    actuele_instelling:                   [21,  24]
+    opleidingscode:                       [25,  29]
+    opleidingsvorm:                       [30,  30]
+    opleidingsfase:                       [31,  31]
+    maand_vanaf:                          [32,  33]
+    code_beeinding:                       [34,  34]
+    maand_tot:                            [35,  36]
+    code_examenresultaat:                 [37,  37]
+    maand_examenresultaat:                [38,  39]
+    code_bekostiging:                     [40,  40]
+    eerste_jaar_instelling:               [41,  44]
+    inschrijvingsvorm:                    [45,  45]
+    soort_ho:                             [46,  48]
+    opleiding_actueel_equivalent:         [49,  53]
+    opleiding_historisch_equivalent:      [54,  58]
+    croho_onderdeel:                      [59,  59]
+    croho_subonderdeel:                   [60,  61]
+    type_ho_binnen_soort_ho:              [62,  63]
+    opleidingsfase_actueel:               [64,  64]
+    ind_actief_peildatum:                 [65,  65]
+    soort_inschrijving_ho:                [66,  66]
+    soort_inschrijving_soort_ho:          [67,  67]
+    soort_inschrijving_type_ho:           [68,  68]
+    soort_inschrijving_opl_act_eq:        [69,  69]
+    soort_inschrijving_act_instelling:    [70,  70]
+    soort_inschrijving_act_opl_inst:      [71,  71]
+    verblijfsjaar_ho:                     [72,  73]
+    verblijfsjaar_soort_ho:               [74,  75]
+    verblijfsjaar_type_ho_soort:          [76,  77]
+    ind_eerstejaars_opl_act_eq:           [78,  78]
+    ind_eerstejaars_act_instelling:       [79,  79]
+    ind_eerstejaars_act_opl_inst:         [80,  80]
+    eerste_jaar_ho:                       [81,  84]
+    eerste_jaar_soort_ho:                 [85,  88]
+    eerste_jaar_opl_instelling:           [89,  92]
+    diplomajaar:                          [93,  96]
+    opleidingsfase_actueel_diploma:       [97,  97]
+    soort_diploma_ho_isced:               [98,  99]
+    soort_diploma_ho:                     [100, 101]
+    soort_diploma_soort_ho:               [102, 103]
+    soort_diploma_instelling:             [104, 105]
+    hoogste_vooropl_voor_ho:              [106, 110]
+    hoogste_vooropl_voor_ho_orig:         [111, 115]
+    diplomajaar_hoogste_vooropl_voor_ho:  [116, 119]
+    instelling_hoogste_vooropl_voor_ho:   [120, 123]
+    hoogste_vooropl_binnen_ho:            [124, 128]
+    hoogste_vooropl_binnen_ho_orig:       [129, 133]
+    diplomajaar_hoogste_vooropl_ho:       [134, 137]
+    instelling_hoogste_vooropl_ho:        [138, 141]
+    hoogste_vooropleiding:                [142, 146]
+    diplomajaar_hoogste_vooropleiding:    [147, 150]
+    instelling_hoogste_vooropleiding:     [151, 154]
+    geslacht:                             [155, 155]
+    leeftijd_peildatum:                   [156, 158]
+    leeftijd_1_januari:                   [159, 161]
+    nationaliteit_1:                      [162, 165]
+    nationaliteit_2:                      [166, 169]
+    nationaliteit_3:                      [170, 173]
+    geboorteland:                         [174, 177]
+    geboorteland_ouder_1:                 [178, 181]
+    geboorteland_ouder_2:                 [182, 185]
+    etniciteit:                           [186, 187]   # AVG: niet gevuld
+    generatie:                            [188, 188]   # AVG: niet gevuld
+    gecorr_eerste_jaar_instelling:        [189, 192]
+    eerste_jaar_act_instelling:           [193, 196]
+    si_act_inst_type_ho_soort:            [197, 197]
+    ind_eerstejaars_act_inst_type:        [198, 198]
+    act_instelling_voor_bestuursfusie:    [199, 202]
+    soort_inschrijving_type_ho_ho:        [203, 203]
+    verblijfsjaar_type_ho_ho:             [204, 205]
+    postcodecijfers_student:              [206, 209]
+    postcodecijfers_vooropl_voor_ho:      [210, 213]
+    gem_eindcijfer_vo:                    [214, 216]
+    si_continu_ho:                        [217, 217]
+    si_continu_soort_ho:                  [218, 218]
+    si_continu_act_instelling:            [219, 219]
+    si_continu_type_ho_ho:                [220, 220]
+    ind_eerstejaars_continu_ho:           [221, 221]
+    ind_eerstejaars_continu_soort_ho:     [222, 222]
+    ind_eerstejaars_continu_act_inst:     [223, 223]
+    ind_eerstejaars_continu_type_ho:      [224, 224]
+    ind_soort_programma:                  [225, 225]
+    datum_inschrijving:                   [226, 233]   # EEJJMMDD
+    datum_uitschrijving:                  [234, 241]   # EEJJMMDD
+    vestigingsnummer:                     [242, 243]
+    datum_tekening_diploma:               [244, 251]   # EEJJMMDD
+    vestigingsnummer_diploma:             [252, 253]
+    vestigingsnummer_actueel:             [254, 255]
+    vestigingsnummer_actueel_diploma:     [256, 257]
+    vestigingsnummer_vooropl_voor_ho:     [258, 259]
+    vestigingsnummer_vooropl_binnen_ho:   [260, 261]
+    vestigingsnummer_hoogste_vooropl:     [262, 263]
+    ind_eer_actueel:                      [264, 264]
+    ind_internationale_student:           [265, 265]
+    ind_eer_peildatum:                    [266, 266]
+    nat_eer_actueel:                      [267, 270]
+    nat_eer_peildatum:                    [271, 274]
+    verblijfsjaar_act_opleiding:          [275, 276]
+    verblijfsjaar_act_instelling:         [277, 278]
+    verblijfsjaar_act_opl_instelling:     [279, 280]
+    verblijfsjaar_act_inst_type_ho:       [281, 282]
+    verblijfsjaar_continu_ho:             [283, 284]
+    verblijfsjaar_continu_soort_ho:       [285, 286]
+    verblijfsjaar_continu_act_inst:       [287, 288]
+    verblijfsjaar_continu_type_ho:        [289, 290]
+    ind_university_college:               [291, 291]
+    isced_f2013_rubriek:                  [292, 297]
+    herkomstland_cbs:                     [298, 301]
+    herkomst_indikking_cbs:               [302, 303]
+    ind_geboren:                          [304, 305]
+    burgerservicenummer:                  [306, 314]   # pseudoniem
+    onderwijsnummer:                      [315, 323]
+
+  vak_havovwo:
+    persoonsgebonden_nummer:              [1,   12]
+    brinnummer_vo:                        [13,  16]
+    vestigingsnummer_vo:                  [17,  18]
+    vooropleiding_orig_code:              [19,  23]
+    diplomajaar:                          [24,  27]
+    gem_cijfer_cijferlijst:               [28,  30]
+    vakcode:                              [31,  34]
+    afkorting_vak:                        [35,  39]
+    ander_niveau:                         [40,  42]
+    ind_diplomavak:                       [43,  43]
+    cijfer_schoolexamen:                  [44,  46]
+    beoordeling_schoolexamen:             [47,  47]
+    cijfer_ce_1:                          [48,  50]
+    cijfer_ce_2:                          [51,  53]
+    cijfer_ce_3:                          [54,  56]
+    eindcijfer_1:                         [57,  58]
+    eindcijfer_2:                         [59,  60]
+    eindcijfer_3:                         [61,  62]
+    cijfer_cijferlijst:                   [63,  64]
+    burgerservicenummer:                  [65,  73]
+    onderwijsnummer:                      [74,  82]
+
+# ---------------------------------------------------------------------------
+# Dimensie- en feitentabellen
+# ---------------------------------------------------------------------------
 tables:
 
-  dim_student:
+  # ---- dim_persoon --------------------------------------------------------
+  # Één rij per unieke student. Persoonskenmerken zijn stabiel over de tijd.
+  dim_persoon:
     type: dimension
     columns:
-      studentnummer:
-        dtype: integer
+      persoonsgebonden_nummer:
+        dtype: string
         role: primary_key
-        min: 1000000
+        length: 12
+        description: "Pseudoniem PGN (BSN voorafgegaan door 000)"
+
       geslacht:
         dtype: categorical
-        categories: [M, V, X]
-        probabilities: [0.48, 0.50, 0.02]
-      geboortejaar:
-        dtype: integer
-        min: 1965
-        max: 2005
-      herkomst:
-        dtype: categorical
-        categories: [NL, EU, NIET-EU]
-        probabilities: [0.82, 0.09, 0.09]
-      vooropleiding:
-        dtype: categorical
-        categories: [VWO, HAVO, MBO-4, HBO-P, WO-B, OVERIG]
-        probabilities: [0.42, 0.20, 0.18, 0.10, 0.06, 0.04]
+        categories: ["1", "2", "0"]
+        probabilities: [0.486, 0.508, 0.006]
+        description: "1=man 2=vrouw 0=onbekend"
 
+      geboorteland:
+        dtype: categorical
+        # Top-5 CBS landcodes (NL=6030, DE=5010, MA=6024, TR=5034, BE=6020)
+        categories: ["6030", "5010", "6024", "5034", "6020", "9999"]
+        probabilities: [0.706, 0.043, 0.042, 0.038, 0.021, 0.150]
+        description: "Landcode (Dec_landcode.asc)"
+
+      geboorteland_ouder_1:
+        dtype: categorical
+        categories: ["6030", "5010", "6024", "5034", "6020", "9999"]
+        probabilities: [0.660, 0.040, 0.060, 0.055, 0.020, 0.165]
+        description: "Landcode ouder 1 (Dec_landcode.asc)"
+
+      geboorteland_ouder_2:
+        dtype: categorical
+        categories: ["6030", "5010", "6024", "5034", "6020", "9999"]
+        probabilities: [0.655, 0.040, 0.062, 0.057, 0.020, 0.166]
+        description: "Landcode ouder 2 (Dec_landcode.asc)"
+
+      nationaliteit_1:
+        dtype: categorical
+        # 0055=NL, 0052=DE, 0070=CN, 0156=IN, 0276=PK, 0504=MA, 9999=overig
+        categories: ["0055", "0052", "0070", "0156", "0276", "0504", "9999"]
+        probabilities: [0.821, 0.025, 0.018, 0.012, 0.011, 0.015, 0.098]
+        description: "Nationaliteitscode (Dec_nationaliteitscode.asc)"
+
+      hoogste_vooropl_voor_ho:
+        dtype: categorical
+        # ISCED-codes / CBS-codes; meest voorkomend in HO:
+        # 20331=vwo, 20332=havo, 30119=mbo-4, 30000=mbo-overig, 40001=hbo-prop
+        categories: ["20331", "20332", "30119", "30000", "40001", "99999"]
+        probabilities: [0.420, 0.200, 0.180, 0.060, 0.060, 0.080]
+        description: "Hoogste vooropleiding vóór het HO (Dec_vopl.asc)"
+
+      diplomajaar_hoogste_vooropl_voor_ho:
+        dtype: integer
+        min: 1975
+        max: 2023
+        description: "Jaar van behalen hoogste VO-diploma"
+
+      postcodecijfers_student:
+        dtype: string
+        length: 4
+        description: "PC4 van studentwoonadres op 1 oktober"
+
+      gem_eindcijfer_vo:
+        dtype: integer
+        min: 550
+        max: 1000
+        description: "Gemiddeld eindcijfer VO (×100, bijv. 706 = 7.06)"
+
+  # ---- dim_opleiding -------------------------------------------------------
+  # Één rij per ISAT-opleidingscode.
   dim_opleiding:
     type: dimension
     columns:
-      isat_code:
-        dtype: integer
+      opleidingscode:
+        dtype: string
         role: primary_key
-        min: 34000
-      opleiding_naam:
-        dtype: categorical
-        categories:
-          - Informatica
-          - Bedrijfskunde
-          - Psychologie
-          - Rechten
-          - Geneeskunde
-          - Technische Informatica
-          - Communicatie
-          - Pedagogiek
-      onderwijstype:
-        dtype: categorical
-        categories: [HBO-B, WO-B, HBO-M, WO-M]
-        probabilities: [0.40, 0.35, 0.15, 0.10]
-      nominale_studieduur:
-        dtype: integer
-        min: 3
-        max: 6
+        length: 5
+        description: "ISAT-code (Dec_opleidingscode.asc)"
 
+      soort_ho:
+        dtype: categorical
+        categories: ["hbo", "wo "]
+        probabilities: [0.57, 0.43]
+        description: "hbo=hoger beroepsonderwijs  wo=wetenschappelijk onderwijs"
+
+      type_ho_binnen_soort_ho:
+        dtype: categorical
+        # hbo: ad ba ma pi xx  |  wo: on ba ma pm pi xx
+        categories: ["ba", "ma", "ad", "on", "pi", "pm", "xx"]
+        probabilities: [0.52, 0.22, 0.05, 0.08, 0.07, 0.02, 0.04]
+        description: "Type HO binnen soort HO (zie bestandsbeschrijving)"
+
+      croho_onderdeel:
+        dtype: categorical
+        categories: ["1","2","3","4","5","6","7","8","9","0","X"]
+        probabilities: [0.06,0.03,0.06,0.12,0.09,0.22,0.07,0.17,0.13,0.01,0.04]
+        description: >
+          1=onderwijs 2=landbouw 3=natuur 4=techniek 5=gezondheidszorg
+          6=economie 7=recht 8=gedrag&maatschappij 9=taal&cultuur 0=overstijgend X=telt niet mee
+
+      opleidingsfase_actueel:
+        dtype: categorical
+        categories: ["B","M","D","A","P","I","K","Q","S","Z","O"]
+        probabilities: [0.48,0.29,0.06,0.04,0.04,0.03,0.02,0.02,0.01,0.005,0.005]
+        description: >
+          B=bachelor M=master D=propedeuse-bachelor A=associate-degree
+          P=propedeuse I=initieel K=kandidaat Q=post-init-master S=schakel Z=beroepsfase O=oud
+
+  # ---- dim_instelling ------------------------------------------------------
+  dim_instelling:
+    type: dimension
+    columns:
+      instellingscode:
+        dtype: string
+        role: primary_key
+        length: 4
+        description: "BRIN-code instelling (Dec_ho-inst.asc)"
+
+      soort_ho:
+        dtype: categorical
+        categories: ["hbo", "wo "]
+        probabilities: [0.62, 0.38]
+
+  # ---- fac_inschrijving ----------------------------------------------------
+  # Één rij per inschrijving; longitudinale structuur op persoonsgebonden_nummer.
   fac_inschrijving:
     type: fact
     columns:
-      inschrijving_id:
-        dtype: integer
-        role: primary_key
-        min: 1
-      studentnummer:
-        dtype: integer
-        role: foreign_key
-        references: dim_student.studentnummer
-      isat_code:
-        dtype: integer
-        role: foreign_key
-        references: dim_opleiding.isat_code
-      collegejaar:
-        dtype: integer
-        min: 2000
-        max: 2024
-      inschrijfdatum:
-        dtype: integer
-        min: 730120
-        max: 737800
-      diplomadatum:
-        dtype: integer
-        min: 731500
-        max: 739000
-        nullable: true
-      ects_behaald:
-        dtype: float
-        min: 0.0
-        max: 60.0
-      resultaat:
-        dtype: categorical
-        categories: [DIPLOMA, UITVAL, SWITCH, DOORSTUDEREND]
-        probabilities: [0.35, 0.25, 0.20, 0.20]
-    sequential:
-      entity_key: studentnummer
-      time_key: collegejaar
-    hooks:
-      - rule: "diplomadatum > inschrijfdatum"
-        condition: "diplomadatum is not null"
 
+      # --- Sleutels ---
+      persoonsgebonden_nummer:
+        dtype: string
+        role: foreign_key
+        references: dim_persoon.persoonsgebonden_nummer
+        length: 12
+
+      inschrijvingsjaar:
+        dtype: integer
+        min: 1986
+        max: 2023
+        description: "Kalenderjaar van start van het inschrijvingsjaar"
+
+      instellingscode:
+        dtype: string
+        role: foreign_key
+        references: dim_instelling.instellingscode
+        length: 4
+
+      opleidingscode:
+        dtype: string
+        role: foreign_key
+        references: dim_opleiding.opleidingscode
+        length: 5
+
+      # --- Inschrijvingskenmerken ---
+      opleidingsvorm:
+        dtype: categorical
+        categories: ["1", "2", "3", " "]
+        probabilities: [0.72, 0.22, 0.05, 0.01]
+        description: "1=voltijd 2=deeltijd 3=duaal/coöp"
+
+      opleidingsfase:
+        dtype: categorical
+        categories: ["B","M","D","A","P","I","K","Q","S","Z","O","V","1","2"]
+        probabilities: [0.44,0.26,0.07,0.04,0.04,0.04,0.02,0.02,0.01,0.01,0.01,0.01,0.01,0.01]
+        description: "Opleidingsfase van de inschrijving (zie bestandsbeschrijving)"
+
+      inschrijvingsvorm:
+        dtype: categorical
+        categories: ["S", "E", "T", "A"]
+        probabilities: [0.94, 0.03, 0.02, 0.01]
+        description: "S=student E=extraneus T=toegelaten A=auditor"
+
+      maand_vanaf:
+        dtype: categorical
+        categories: ["09","10","02","03","08","11","01","04","05","06","07","12"]
+        probabilities: [0.60,0.08,0.12,0.04,0.05,0.03,0.02,0.01,0.01,0.01,0.01,0.02]
+        description: "Maand van ingang inschrijving"
+
+      maand_tot:
+        dtype: categorical
+        categories: ["  ","08","07","01","02","03","04","05","06","09","10","11","12","00"]
+        probabilities: [0.55,0.18,0.06,0.02,0.02,0.02,0.02,0.02,0.02,0.02,0.02,0.02,0.01,0.02]
+        nullable: true
+        description: "Maand van beëindiging inschrijving (leeg = lopend)"
+
+      code_beeinding:
+        dtype: categorical
+        categories: [" ","0","1","2","3","4","5","6","7","8","9"]
+        probabilities: [0.50,0.08,0.08,0.01,0.08,0.05,0.04,0.03,0.01,0.005,0.065]
+        nullable: true
+        description: >
+          leeg/0=geen  1=diploma  2=onderbreking  3=BSA/vroegtijdig  4=BSA-instelling
+          5=ziekte  6=aanvullend-doctoraal  7=coöp-werk  8=overlijden  9=verzoek
+
+      code_examenresultaat:
+        dtype: categorical
+        categories: [" ","1","2","3","4","5","6","7","8","9"]
+        probabilities: [0.63,0.15,0.09,0.02,0.02,0.03,0.02,0.01,0.01,0.02]
+        nullable: true
+        description: >
+          leeg=geen examen  1=afsluitend examen behaald  2=studie gestaakt
+          3=afstuderen na 1-nov  4=staken na 1-nov  5=kandidaatsexamen  6=tussentijds doctoraal
+
+      code_bekostiging:
+        dtype: categorical
+        categories: ["J","N","H","M","T","0"," "]
+        probabilities: [0.70,0.15,0.06,0.04,0.02,0.02,0.01]
+        description: "J=ja N=nee H=J-laat M=N-laat (vanaf 2009: opleiding eerste inschrijving)"
+
+      # --- Verblijfsjaren (relatief t.o.v. start HO) ---
+      verblijfsjaar_ho:
+        dtype: integer
+        min: 1
+        max: 20
+        description: "Verblijfsjaar in het gehele HO"
+
+      verblijfsjaar_soort_ho:
+        dtype: integer
+        min: 1
+        max: 15
+        description: "Verblijfsjaar binnen soort HO (hbo of wo)"
+
+      # --- Eerstejaars-indicatoren ---
+      ind_eerstejaars_opl_act_eq:
+        dtype: categorical
+        categories: ["J","N"]
+        probabilities: [0.22, 0.78]
+        description: "J=eerstejaars aan opleiding actueel equivalent"
+
+      ind_eerstejaars_act_instelling:
+        dtype: categorical
+        categories: ["J","N"]
+        probabilities: [0.25, 0.75]
+
+      # --- Eerste jaren ---
+      eerste_jaar_ho:
+        dtype: integer
+        min: 1986
+        max: 2023
+        description: "Eerste inschrijvingsjaar in het HO"
+
+      eerste_jaar_instelling:
+        dtype: integer
+        min: 1986
+        max: 2023
+        description: "Eerste inschrijvingsjaar aan deze instelling"
+
+      # --- Diploma ---
+      diplomajaar:
+        dtype: integer
+        min: 1986
+        max: 2023
+        nullable: true
+        description: "Jaar van diplomering (0000 of leeg = nog geen diploma)"
+
+      soort_diploma_ho:
+        dtype: categorical
+        categories: ["  ","1B","1M","2B","2M","3B","3M","4B","4M","5B","5M"]
+        probabilities: [0.55,0.18,0.15,0.04,0.03,0.01,0.01,0.01,0.01,0.005,0.005]
+        nullable: true
+        description: "Soort diploma HO (bijv. 1B=hbo-bachelor 1M=hbo-master)"
+
+      # --- Inschrijving-type / hoofdinschrijving ---
+      soort_inschrijving_ho:
+        dtype: categorical
+        categories: ["1","2","3","4","5","6","7","8","9","A","B","C","D","E"]
+        probabilities: [0.72,0.06,0.08,0.02,0.03,0.02,0.01,0.01,0.01,0.01,0.005,0.005,0.005,0.005]
+        description: >
+          1=hoofdinschrijving HO  2=neveninskr(echt)  3=niet actief peildatum
+          4=neveninskr(onecht)  5=opl telt niet mee  6-9=uitwisselingsstudent  A-E=aangewezen
+
+      ind_actief_peildatum:
+        dtype: categorical
+        categories: ["1","2","3","4"]
+        probabilities: [0.83, 0.12, 0.03, 0.02]
+        description: >
+          1=actief op 1-okt  2=uitgeschreven voor peildatum
+          3=nog niet begonnen (echt)  4=nog niet begonnen (onecht)
+
+      # --- Datums (EEJJMMDD als string) ---
+      datum_inschrijving:
+        dtype: string
+        length: 8
+        description: "Inschrijfdatum EEJJMMDD"
+
+      datum_uitschrijving:
+        dtype: string
+        length: 8
+        nullable: true
+        description: "Uitschrijfdatum EEJJMMDD (leeg = nog ingeschreven)"
+
+      datum_tekening_diploma:
+        dtype: string
+        length: 8
+        nullable: true
+        description: "Datum van diplomering EEJJMMDD"
+
+      # --- Overig ---
+      ind_internationale_student:
+        dtype: categorical
+        categories: ["J", "N"]
+        probabilities: [0.12, 0.88]
+
+      ind_university_college:
+        dtype: categorical
+        categories: ["J", "N", " "]
+        probabilities: [0.02, 0.97, 0.01]
+
+      gem_eindcijfer_vo:
+        dtype: integer
+        min: 550
+        max: 1000
+        nullable: true
+        description: "Gem. eindcijfer VO (×100) van hoogste vooropl. vóór HO"
+
+    sequential:
+      entity_key: persoonsgebonden_nummer
+      time_key: inschrijvingsjaar
+
+    hooks:
+      - rule: "datum_tekening_diploma > datum_inschrijving"
+        condition: "datum_tekening_diploma is not null"
+      - rule: "diplomajaar >= eerste_jaar_ho"
+        condition: "diplomajaar is not null"
+
+  # ---- fac_vak (vakkenbestand) -------------------------------------------
+  # Één rij per vak per VO-geslaagde; gekoppeld via persoonsgebonden_nummer.
+  fac_vak:
+    type: fact
+    columns:
+      persoonsgebonden_nummer:
+        dtype: string
+        role: foreign_key
+        references: dim_persoon.persoonsgebonden_nummer
+        length: 12
+
+      diplomajaar:
+        dtype: integer
+        min: 1990
+        max: 2023
+
+      vakcode:
+        dtype: string
+        length: 4
+        description: "Vakcode (Dec_vakcode.asc)"
+
+      ind_diplomavak:
+        dtype: categorical
+        categories: ["J", "N", " "]
+        probabilities: [0.80, 0.15, 0.05]
+
+      eindcijfer_1:
+        dtype: integer
+        min: 1
+        max: 10
+        nullable: true
+
+      cijfer_schoolexamen:
+        dtype: integer
+        min: 100
+        max: 1000
+        nullable: true
+        description: "Cijfer schoolexamen (×100)"
+
+      gem_cijfer_cijferlijst:
+        dtype: integer
+        min: 550
+        max: 1000
+        description: "Gemiddeld cijfer cijferlijst (×100)"
+
+# ---------------------------------------------------------------------------
+# Graad-model: aantal fac_inschrijving-rijen per persoonsgebonden_nummer
+# ---------------------------------------------------------------------------
 degree:
   fac_inschrijving:
     distribution: negative_binomial
-    mean: 4.2
-    dispersion: 1.8
+    mean: 4.8       # gemiddeld ~4-5 inschrijvingsjaren per student
+    dispersion: 2.1
+
+  fac_vak:
+    distribution: negative_binomial
+    mean: 11.0      # ~11 vakken per VO-diploma
+    dispersion: 3.5

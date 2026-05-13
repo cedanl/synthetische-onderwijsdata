@@ -18,7 +18,9 @@ Werking
 -------
 Voor elke dimensietabel:
   - Selecteer de kolommen die in de preset zijn gedefinieerd EN aanwezig zijn in df.
-  - Dedupliceer op de primary-key: neem de eerste rij per PK-waarde.
+  - Dedupliceer op de primary-key via de meest recente rij (gesorteerd op time_key als
+    aanwezig in het schema, anders eerste rij per PK). Dit voorkomt dat oudere jaar-
+    standen "stabiele" attributen zoals opleidingsnaam overschrijven.
 
 Voor elke feitentabel:
   - Selecteer de kolommen die in de preset zijn gedefinieerd EN aanwezig zijn in df.
@@ -29,7 +31,7 @@ door de synthesizer.
 """
 from __future__ import annotations
 
-from typing import Dict
+from typing import Dict, Optional
 
 import pandas as pd
 
@@ -51,6 +53,7 @@ def split_flat(df: pd.DataFrame, schema: Schema) -> Dict[str, pd.DataFrame]:
     -------
     Dict van tabelnaam → DataFrame, klaar voor ``RelationalSynthesizer.fit()``.
     """
+    time_key = _find_time_key(schema, df)
     result: Dict[str, pd.DataFrame] = {}
 
     for table_name, table in schema.tables.items():
@@ -68,14 +71,32 @@ def split_flat(df: pd.DataFrame, schema: Schema) -> Dict[str, pd.DataFrame]:
         subset = df[available].copy()
 
         if table.table_type == "dimension" and pk_col and pk_col in subset.columns:
-            subset = (
-                subset
-                .drop_duplicates(subset=[pk_col])
-                .reset_index(drop=True)
-            )
+            subset = _dedup_dim(subset, pk_col, time_key)
         else:
             subset = subset.reset_index(drop=True)
 
         result[table_name] = subset
 
     return result
+
+
+def _dedup_dim(df: pd.DataFrame, pk_col: str, time_key: Optional[str]) -> pd.DataFrame:
+    """Neem de meest recente rij per PK-waarde, of de eerste als er geen tijdkolom is."""
+    if time_key and time_key in df.columns:
+        return (
+            df.sort_values(time_key, ascending=False)
+            .drop_duplicates(subset=[pk_col])
+            .sort_index()
+            .reset_index(drop=True)
+        )
+    return df.drop_duplicates(subset=[pk_col]).reset_index(drop=True)
+
+
+def _find_time_key(schema: Schema, df: pd.DataFrame) -> Optional[str]:
+    """Zoek de tijdkolom vanuit sequential-config van feitentabellen."""
+    for table in schema.tables.values():
+        if table.sequential:
+            key = table.sequential.get("time_key")
+            if key and key in df.columns:
+                return key
+    return None

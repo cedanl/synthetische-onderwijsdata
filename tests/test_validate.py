@@ -75,35 +75,52 @@ class TestCompareNumeric:
 
 
 class TestReport:
-    def test_geeft_dataframe_terug(self, schema):
-        from synthetische_onderwijsdata import RelationalSynthesizer
-
-        synth = RelationalSynthesizer(schema, random_state=0)
-        tables = synth.generate(
-            n_entities={"dim_persoon": 100, "dim_opleiding": 10, "dim_instelling": 5}
+    def _make_tables(self, schema, n: int = 100, seed: int = 0):
+        from synthetische_onderwijsdata import FlatSynthesizer
+        from synthetische_onderwijsdata.sources._1cijferho.splitter import split_flat
+        rng = np.random.default_rng(seed)
+        rows = []
+        for i in range(n):
+            pgn = f"{i:012d}"
+            for jaar in ["2020", "2021"]:
+                rows.append({
+                    "persoonsgebonden_nummer": pgn,
+                    "inschrijvingsjaar": jaar,
+                    "instellingscode": rng.choice(["21RI", "21PX"]),
+                    "opleidingscode": rng.choice(["34001", "34002"]),
+                    "geslacht": rng.choice(["1", "2"]),
+                    "soort_hoger_onderwijs": rng.choice(["hbo", "wo "]),
+                    "opleidingsvorm": rng.choice(["1", "2"]),
+                    "soort_inschrijving_hoger_onderwijs": rng.choice(["1", "2"]),
+                    "diplomajaar": "",
+                })
+        df = pd.DataFrame(rows)
+        synth_flat = (
+            FlatSynthesizer(
+                entity_key="persoonsgebonden_nummer",
+                time_key="inschrijvingsjaar",
+                stable_cols=["geslacht"],
+                random_state=seed,
+            )
+            .fit(df)
+            .generate(n)
         )
-        result = report(tables, tables, schema)
+        return split_flat(df, schema), split_flat(synth_flat, schema)
+
+    def test_geeft_dataframe_terug(self, schema):
+        real_tables, synth_tables = self._make_tables(schema)
+        result = report(real_tables, synth_tables, schema)
         assert isinstance(result, pd.DataFrame)
         assert set(result.columns) >= {"table", "column", "dtype", "distance", "metric"}
 
     def test_identieke_input_geeft_nul_distances(self, schema):
-        from synthetische_onderwijsdata import RelationalSynthesizer
-
-        synth = RelationalSynthesizer(schema, random_state=0)
-        tables = synth.generate(
-            n_entities={"dim_persoon": 100, "dim_opleiding": 10, "dim_instelling": 5}
-        )
-        result = report(tables, tables, schema)
+        real_tables, _ = self._make_tables(schema)
+        result = report(real_tables, real_tables, schema)
         assert result["distance"].max() == pytest.approx(0.0, abs=1e-9)
 
     def test_pk_fk_uitgesloten(self, schema):
-        from synthetische_onderwijsdata import RelationalSynthesizer
-
-        synth = RelationalSynthesizer(schema, random_state=0)
-        tables = synth.generate(
-            n_entities={"dim_persoon": 50, "dim_opleiding": 5, "dim_instelling": 3}
-        )
-        result = report(tables, tables, schema)
+        real_tables, synth_tables = self._make_tables(schema, n=50)
+        result = report(real_tables, synth_tables, schema)
         pk_fk_cols = {
             c for t in schema.tables.values()
             for c, col in t.columns.items()

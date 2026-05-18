@@ -1,13 +1,13 @@
 # Synthetische Onderwijsdata
 
-Een Python-package voor het genereren van synthetische onderwijsdata op basis van echte datasets zoals **1cijferHO**. Het genereert nep-studenten, nep-inschrijvingen en nep-vakresultaten die statistisch lijken op echte data — maar geen echte personen bevatten.
+Een Python-package voor het genereren van synthetische onderwijsdata op basis van echte datasets zoals **1cijferHO**. Het genereert nep-studenten met nep-inschrijvingshistorie die statistisch lijken op echte data — maar geen echte personen bevatten.
 
 ## Waarvoor gebruik je dit?
 
 - **Privacy-veilig delen** van analysebestanden met derden
 - **Testen van dashboards en pipelines** zonder echte persoonsgegevens
 - **Demonstraties en trainingen** waarbij een realistisch-ogende dataset nodig is
-- **Methodeontwikkeling** waarbij een grote relationele dataset als testbed dient
+- **Methodeontwikkeling** waarbij een grote longitudinale dataset als testbed dient
 
 ## Wat is het NIET?
 
@@ -20,17 +20,25 @@ pip install synthetische-onderwijsdata
 ```
 
 ```python
-from synthetische_onderwijsdata import RelationalSynthesizer
-from synthetische_onderwijsdata.engine.loader import PresetLoader
+import pandas as pd
+from synthetische_onderwijsdata.engine.flat import FlatSynthesizer
 
-schema = PresetLoader.from_builtin("1cijferho")
-synth = RelationalSynthesizer(schema, random_state=42)
-tables = synth.generate(n_entities={"dim_persoon": 1000, "dim_opleiding": 30, "dim_instelling": 10})
+# Echte data inlezen (output van cedanl/1cijferho-tool)
+df = pd.read_parquet("data/ev_inschrijving.parquet")
 
-print(tables["fac_inschrijving"].head())
+# Model fitten en synthetische data genereren
+synth = FlatSynthesizer(
+    entity_key="persoonsgebonden_nummer",
+    time_key="inschrijvingsjaar",
+    stable_cols=["geslacht", "geboorteland", "hoogste_vooropleiding_voor_het_ho"],
+)
+synth.fit(df)
+synthetic = synth.generate(n_entities=1000)
+
+print(synthetic.head())
 ```
 
-Zie [Aan de slag](aan-de-slag.md) voor de volledige workflow inclusief fitten op echte data.
+Zie [Aan de slag](aan-de-slag.md) voor de volledige workflow inclusief normalisatie naar dim/feit-tabellen.
 
 ## Navigatie
 

@@ -4,64 +4,57 @@ Deze pagina legt uit wat het model statistisch doet, wat het wél en niet kan re
 
 ---
 
-## De generatiepijplijn in drie stappen
+## De generatiepijplijn
 
 ```
-Echte data (OBT)
+Echte data (flat — één rij per student-jaar)
       │
       ▼
-split_flat()          ← OBT → dim/feit-tabellen
+synth.fit()       ← statistische modellen leren op alle kolommen tegelijk
       │
       ▼
-synth.fit()           ← statistische modellen leren
-      │
-      ▼
-synth.generate()      ← synthetische tabellen genereren
+synth.generate()  ← n synthetische studenten genereren, elk met volledig traject
 ```
 
-Het package genereert tabellen in **topologische volgorde**: eerst dimensietabellen (persoon, opleiding, instelling), dan feitentabellen (inschrijvingen, vakresultaten). Zo verwijst elke foreign key altijd naar een al bestaande primary key. Dit garandeert structurele consistentie, maar zegt niets over de statistische kwaliteit van de waarden zelf.
+Het model werkt op de **denormalized flat tabel**: alle kolommen — persoonskenmerken, opleidingskenmerken, inschrijvingsattributen — zitten samen in één rij per student per jaar. Hierdoor leert het model de verbanden tussen kolommen die in een genormaliseerde opzet in aparte tabellen zouden zitten (bijv. geslacht en opleidingsrichting).
 
 ---
 
-## Wat het model leert — per kolom-type
+## Wat het model leert
 
-### Categorische kolommen
-Na `fit()` worden de empirische frequenties uit de data gebruikt. Als in je data 53% van de inschrijvingen `man` is, produceert de synthesizer ook ~53% `man`. Zonder `fit()` komen de verhoudingen uit de preset-defaults.
+### Begintoestanden — bootstrap
 
-### Numerieke kolommen — correlaties
-Numerieke niet-sleutelkolommen worden gemodelleerd via een **Gaussian copula**:
+Per synthetische student wordt een begintoestand gesampled door één willekeurige eerste inschrijvingsrij te trekken uit de trainingsdata. Omdat dit een complete rij is, worden alle cross-kolom verbanden uit de echte data direct meegenomen: een student die begint met `geslacht=V` heeft ook de bijbehorende opleidingskeuze, instelling en overige kenmerken van een echte vrouwelijke student.
 
-1. Elke kolom wordt via de empirische cumulatieve verdeling (ECDF) genormaliseerd naar N(0,1).
-2. De **Spearman-correlatiegekritiek** tussen de genormaliseerde kolommen wordt berekend.
-3. Een **Cholesky-decompositie** van die correlatiematrix produceert gecorreleerde trekkingen.
-4. De getrokken waarden worden teruggetransformeerd via de inverse ECDF naar de originele marginale verdeling.
+### Categorische kolommen — Markov-transitie
 
-Dit behoudt zowel de vorm van elke marginale verdeling (niet zomaar een Gaussiaan) als de rangcorrelaties tussen kolommen. Het behoudt **geen** niet-lineaire afhankelijkheden die niet in de Spearman-correlatie zitten.
+Voor elke categorische kolom wordt een empirische transitiematrix P(waarde_t | waarde_{t-1}) gefit over alle studenttrajecten. Met Laplace-smoothing om zeldzame overgangen te ondervangen.
 
-### Longitudinale kolommen — trajecten over tijd
-Voor feitentabellen met een `sequential`-configuratie (zoals `fac_inschrijving`) wordt een **Markov-transitiemodel** gefit:
+Kolommen die als `stable_cols` zijn opgegeven worden na elke stap teruggezet naar de beginwaarde — ze kunnen nooit wisselen binnen een traject.
 
-- **Categorische kolommen**: een transitiematrix P(waarde_t | waarde_{t-1}) per kolom, Laplace-glad om ijle combinaties te ondervangen.
-- **Numerieke kolommen**: een AR(1)-proces: waarde_t = α + β · waarde_{t-1} + ε, gefit via OLS.
+### Numerieke kolommen — AR(1)
 
-Het startpunt van elk traject wordt willekeurig getrokken uit de begintoestanden in de trainingsdata. De **duur** van het traject (aantal inschrijvingsjaren) wordt getrokken uit een negatief-binomiale verdeling gefit op de tellingen per entiteit in de trainingsdata.
+Voor elke numerieke kolom wordt een AR(1)-proces gefit: waarde_t = α + β · waarde_{t-1} + ε, via OLS op aaneengesloten tijdstapparen. Dit reproduceert zowel het niveau als de autocorrelatie (bijv. stijgende verblijfsjaren).
 
-### Referentiële integriteit
-Foreign keys worden na aanmaak van de parent-tabel geregistreerd in een interne registry. Child-records samplen hun FK-waarden uniform uit die registry. Dit garandeert dat er geen orphan records zijn.
+### Trajectduur — negatief-binomiale verdeling
+
+Het aantal inschrijvingsjaren per student wordt getrokken uit een negatief-binomiale verdeling die gefit is op de empirische tellingen per student in de trainingsdata.
+
+### Tussenjaren
+
+De verdeling van jaarsprongen (gap = 1 jaar normaal, gap = 2 of 3 = tussenjaar) wordt empirisch geleerd en gebruikt om de tijdas van elk traject op te bouwen.
 
 ---
 
 ## Wat het model NIET leert
 
-Dit zijn de bekende beperkingen. Ze zijn relevant als je de kwaliteit van de output wilt beoordelen.
-
 | Wat | Waarom niet |
 |---|---|
-| **Duur van trajecten afhankelijk van persoonskenmerken** | Het graadmodel is onconditional: elke student trekt uit dezelfde NB-verdeling, ongeacht opleiding of achtergrond |
-| **Trajectverloop afhankelijk van persoonskenmerken** | De transitiematrix is populatie-breed; er is geen aparte matrix per cohort, opleiding of instelling |
-| **Niet-lineaire afhankelijkheden tussen kolommen** | De Gaussian copula vangt alleen rangcorrelaties; bijv. een interactie-effect tussen opleiding en jaar wordt niet geleerd |
-| **Temporele afhankelijkheden over meer dan één stap** | Het Markov-model heeft geheugen van één stap; langere patronen (bijv. terugkeerders na twee jaar uitschrijving) worden niet vastgelegd |
-| **Schaarste en zeldzame combinaties** | Zeer zeldzame categorische combinaties in de data worden via de Laplace-smoothing afgevlakt of kunnen in synthetische data ontbreken |
+| **Trajectduur afhankelijk van persoonskenmerken** | Het graadmodel is onconditional: elke student trekt uit dezelfde NB-verdeling, ongeacht opleiding of achtergrond |
+| **Transitiematrix verschilt per subgroep** | Er is één populatie-brede matrix per kolom; subgroepverschillen (bijv. uitvalpatronen per opleiding) worden niet gereproduceerd |
+| **Niet-lineaire afhankelijkheden** | De bootstrap vangt het startpunt correct, maar de DBN-transities modelleren kolommen onafhankelijk van elkaar; interactie-effecten over tijd worden niet geleerd |
+| **Temporele patronen over meer dan één stap** | Het Markov-model heeft geheugen van één stap; langere patronen zoals terugkeerders na twee jaar onderbreking worden afgevlakt |
+| **Nieuwe combinaties buiten de trainingsdata** | Begintoestanden zijn bootstraps uit echte rijen: combinaties die niet in de trainingsdata voorkomen kunnen niet als startpunt opduiken |
 
 ---
 
@@ -71,14 +64,14 @@ Dit zijn de bekende beperkingen. Ze zijn relevant als je de kwaliteit van de out
 
 - Testen of een dashboard correct omgaat met ontbrekende waarden, uitzonderlijke cohorten of grote aantallen inschrijvingen
 - Demonstraties waarbij de data er realistisch uit moet zien maar exacte verhoudingen niet kritisch zijn
-- Methodeontwikkeling waarbij een gevuld relationeel schema als testbed dient
+- Methodeontwikkeling waarbij een gevuld longitudinaal bestand als testbed dient
 - Privacy-veilig delen van een bestand met externe partijen voor exploratieve analyse
 
 **Kritisch beoordelen bij:**
 
-- Analyses waarbij de verhouding van een specifieke categorische variabele (bijv. % uitval per opleiding) moet kloppen → fit op echte data, valideer de marginale verdeling van die kolom
-- Analyses waarbij correlaties tussen twee specifieke kolommen cruciaal zijn → controleer of beide kolommen numeriek zijn en dus via de copula zijn gemodelleerd; categorische kolommen worden onafhankelijk gegenereerd
-- Trajectanalyses waarbij het verloop sterk afhangt van instroomkenmerken → het model gebruikt één populatie-brede transitiematrix; subgroepverschillen worden niet gereproduceerd
+- Analyses waarbij de verhouding van een specifieke categorische variabele (bijv. % uitval per opleiding) moet kloppen → valideer de marginale verdeling van die kolom na synthese
+- Analyses waarbij subgroepverschillen (bijv. uitval hbo vs. wo) cruciaal zijn → het model gebruikt één populatie-brede transitiematrix; subgroepen worden niet apart gemodelleerd
+- Trajectanalyses waarbij de duur sterk afhangt van instroomkenmerken → het graadmodel is onconditional
 
 **Niet geschikt voor:**
 
@@ -90,39 +83,17 @@ Dit zijn de bekende beperkingen. Ze zijn relevant als je de kwaliteit van de out
 
 ## Validatie van output
 
-Het package bevat ingebouwde validatie-utilities in `synthetische_onderwijsdata.validate`.
-
-### Overzichtsrapport (alle tabellen tegelijk)
-
 ```python
 from synthetische_onderwijsdata import validate
 
-df = validate.report(tables, synthetic, schema)
-print(df.to_string())
+# Categorische kolommen — Total Variation per kolom
+cat_df = validate.compare_marginals(df, synthetic)
+
+# Numerieke kolommen — Wasserstein-afstand + statistieken
+num_df = validate.compare_numeric(df, synthetic)
 ```
 
-Geeft één DataFrame terug, gesorteerd op grootste afwijking eerst:
-
-| table | column | dtype | distance | metric |
-|---|---|---|---|---|
-| dim_persoon | geslacht | categorical | 0.032 | tv |
-| fac_inschrijving | soort_ho | categorical | 0.018 | tv |
-| … | … | … | … | … |
-
-- **`tv`** (Total Variation): 0 = identiek, 1 = volledig anders. Vuistregel: < 0.05 is goed.
-- **`wasserstein`**: schaalafhankelijk (zelfde eenheid als de kolom). Vuistregel: < 5% van het bereik.
-
-### Per tabel
-
-```python
-# Categorische kolommen
-cat_df = validate.compare_marginals(tables["dim_persoon"], synthetic["dim_persoon"])
-print(cat_df)
-
-# Numerieke kolommen
-num_df = validate.compare_numeric(tables["fac_inschrijving"], synthetic["fac_inschrijving"])
-print(num_df)
-```
+Vuistregels: TV < 0.05 is goed; Wasserstein < 5% van het kolombereik is goed.
 
 ---
 
@@ -130,10 +101,5 @@ print(num_df)
 
 | Component | Methodologische basis |
 |---|---|
-| Topologische generatievolgorde | IRG — [li-jiayu-ljy/irg](https://github.com/li-jiayu-ljy/irg) |
+| Longitudinale studenttrajecten (DBN) | [Huang et al., LAK 2023](https://doi.org/10.1145/3785022.3785085) |
 | Gaussian copula met Cholesky | GCM — [JdHondt/gcm](https://github.com/JdHondt/gcm) |
-| Referentiële integriteit en schema-extractie | Misata — [rasinmuhammed/misata](https://github.com/rasinmuhammed/misata) |
-| Conditionele generatie child-records | RC-TGAN — [croesuslab/RCTGAN](https://github.com/croesuslab/RCTGAN) |
-| Longitudinale studenttrajecten | [Huang et al., LAK 2023](https://doi.org/10.1145/3785022.3785085) |
-
-De implementatie gebruikt een vereenvoudigde versie van de aanpakken uit deze bronnen. Zo gebruikt het transitiemodel Markov-ketens en AR(1) in plaats van de volledige Bayesiaanse netwerkstructuurlering uit het LAK-paper, en is het graadmodel onconditional waar IRG een regressiemodel op parent-features gebruikt.

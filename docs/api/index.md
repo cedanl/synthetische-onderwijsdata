@@ -1,12 +1,8 @@
 # API-referentie
 
-## RelationalSynthesizer
+## FlatSynthesizer
 
-::: synthetische_onderwijsdata.engine.core.RelationalSynthesizer
-
-## Schema
-
-::: synthetische_onderwijsdata.schema.Schema
+::: synthetische_onderwijsdata.engine.flat.FlatSynthesizer
 
 ## PresetLoader
 
